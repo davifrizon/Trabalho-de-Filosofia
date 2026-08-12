@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lógica fuzzy — simulador de temperatura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F3EC;
+    --ink:#20201C;
+    --ink-soft:#5B584F;
+    --line:#D8D3C6;
+    --card:#FFFFFF;
+    --frio:#2F6FA8;
+    --morno:#C97A1E;
+    --quente:#B23A2E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:760px;
+    margin:0 auto;
+    padding:64px 24px 96px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:0 0 14px;
+  }
+  h1{
+    font-family:'Source Serif 4',serif;
+    font-weight:600;
+    font-size:clamp(32px,5vw,46px);
+    line-height:1.1;
+    margin:0 0 18px;
+    letter-spacing:-0.01em;
+  }
+  .lede{
+    font-size:17px;
+    line-height:1.65;
+    color:var(--ink-soft);
+    max-width:56ch;
+    margin:0 0 48px;
+  }
+  .lede b{color:var(--ink);font-weight:500;}
+
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:36px 32px 28px;
+  }
+
+  .gauge-wrap{position:relative;}
+  svg{display:block;width:100%;height:auto;}
+  .tick{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    fill:var(--ink-soft);
+  }
+  #tempReadout{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:20px;
+    font-weight:500;
+    fill:var(--ink);
+  }
+  #needleGroup line{stroke:var(--ink);}
+  #pivot{
+    fill:var(--ink);
+    transition:r 0.3s cubic-bezier(0.22,1,0.36,1);
+  }
+  #pivot.active{r:9;}
+
+  @keyframes riseIn{
+    from{opacity:0;transform:translateY(10px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+  .panel{animation:riseIn 0.7s cubic-bezier(0.22,1,0.36,1) both;}
+  #zones path{
+    opacity:0;
+    animation:riseIn 0.6s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  #zones path:nth-child(1){animation-delay:0.05s;}
+  #zones path:nth-child(2){animation-delay:0.15s;}
+  #zones path:nth-child(3){animation-delay:0.25s;}
+
+  .controls{
+    margin-top:8px;
+    padding-top:24px;
+    border-top:1px solid var(--line);
+  }
+  .slider-row{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:28px;
+  }
+  .slider-row label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--ink-soft);
+    min-width:130px;
+  }
+  input[type=range]{
+    flex:1;
+    -webkit-appearance:none;
+    height:2px;
+    background:var(--line);
+    border-radius:2px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px;height:16px;
+    border-radius:50%;
+    background:var(--ink);
+    cursor:pointer;
+    border:3px solid var(--card);
+    box-shadow:0 0 0 1px var(--line);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;
+    border-radius:50%;
+    background:var(--ink);
+    cursor:pointer;
+    border:3px solid var(--card);
+    box-shadow:0 0 0 1px var(--line);
+  }
+  #tempOut{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:14px;
+    font-weight:500;
+    min-width:52px;
+    text-align:right;
+  }
+
+  .bars{display:flex;flex-direction:column;gap:16px;}
+  .bar-row .top{
+    display:flex;
+    justify-content:space-between;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .bar-row .top span:last-child{color:var(--ink);font-weight:500;}
+  .track{
+    height:8px;
+    background:var(--paper);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .fill{
+    height:100%;
+    width:0%;
+    border-radius:4px;
+    transition:width 0.08s linear;
+  }
+  #frioBar{background:var(--frio);}
+  #mornoBar{background:var(--morno);}
+  #quenteBar{background:var(--quente);}
+
+  .note{
+    margin-top:40px;
+    font-size:14px;
+    line-height:1.6;
+    color:var(--ink-soft);
+    max-width:56ch;
+  }
+  .note b{color:var(--ink);font-weight:500;}
+
+  footer{
+    margin-top:56px;
+    padding-top:20px;
+    border-top:1px solid var(--line);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    letter-spacing:0.04em;
+  }
+  footer .school{margin:0 0 8px;}
+  footer .names{
+    font-family:'Source Serif 4',serif;
+    font-size:16px;
+    font-weight:600;
+    letter-spacing:0;
+    color:var(--ink);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    #needleGroup, .fill{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Filosofia — trabalho prático</p>
+  <h1>Lógica fuzzy, ao vivo</h1>
+  <p class="lede">
+    Na lógica clássica, uma temperatura é <b>fria</b> ou não é. Na lógica fuzzy,
+    ela pode ser fria, morna e quente ao mesmo tempo — cada categoria com um
+    grau diferente de verdade. Mova o ponteiro abaixo e veja os graus mudarem
+    em tempo real.
+  </p>
+
+  <div class="panel">
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 680 300" role="img">
+        <title>Mostrador fuzzy de temperatura</title>
+        <desc>Ponteiro que gira sobre um mostrador semicircular dividido em frio, morno e quente</desc>
+        <g id="zones"></g>
+        <g id="ticks"></g>
+        <g id="needleGroup" style="transform-origin:340px 240px;">
+          <line x1="340" y1="240" x2="340" y2="112" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <circle id="pivot" cx="340" cy="240" r="7"/>
+        <text id="tempReadout" x="340" y="278" text-anchor="middle">22 C</text>
+      </svg>
+    </div>
+
+    <div class="controls">
+      <div class="slider-row">
+        <label for="temp">Mover ponteiro</label>
+        <input type="range" id="temp" min="0" max="40" value="22" step="1" oninput="update(this.value)">
+        <span id="tempOut">22 C</span>
+      </div>
+
+      <div class="bars">
+        <div class="bar-row">
+          <div class="top"><span>Frio</span><span id="frioPct">0%</span></div>
+          <div class="track"><div id="frioBar" class="fill"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="top"><span>Morno</span><span id="mornoPct">0%</span></div>
+          <div class="track"><div id="mornoBar" class="fill"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="top"><span>Quente</span><span id="quentePct">0%</span></div>
+          <div class="track"><div id="quenteBar" class="fill"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    <b>Exemplo:</b> em 22°C o sistema não escolhe uma única categoria — ele
+    mistura <b>morno</b> e <b>quente</b> em proporções diferentes. É essa
+    ideia de grau de pertinência, proposta por Lotfi Zadeh em 1965, que
+    diferencia a lógica fuzzy da lógica clássica.
+  </p>
+
+  <footer>
+    <p class="school">EEB Prof. Olavo Cecco Rigon — Filosofia — 203 NEM</p>
+    <p class="names">Davi Frizon · Pietro · João Maria</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var cx=340, cy=240, rOuter=150, rInner=105, tickR=172;
+  function pt(angle,r){
+    var rad = angle*Math.PI/180;
+    return [cx + r*Math.cos(rad), cy - r*Math.sin(rad)];
+  }
+  function segPath(a1,a2){
+    var p1=pt(a1,rOuter), p2=pt(a2,rOuter), p3=pt(a2,rInner), p4=pt(a1,rInner);
+    return 'M '+p1[0]+' '+p1[1]+' A '+rOuter+' '+rOuter+' 0 0 1 '+p2[0]+' '+p2[1]+' L '+p3[0]+' '+p3[1]+' A '+rInner+' '+rInner+' 0 0 0 '+p4[0]+' '+p4[1]+' Z';
+  }
+  var zonesG = document.getElementById('zones');
+  var segs = [[180,120,'#2F6FA8'],[120,60,'#C97A1E'],[60,0,'#B23A2E']];
+  segs.forEach(function(s){
+    var path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', segPath(s[0],s[1]));
+    path.setAttribute('fill', s[2]);
+    path.setAttribute('fill-opacity','0.45');
+    path.setAttribute('stroke', s[2]);
+    path.setAttribute('stroke-width','1');
+    zonesG.appendChild(path);
+  });
+  var ticksG = document.getElementById('ticks');
+  [0,10,20,30,40].forEach(function(t){
+    var a = 180 - (t/40)*180;
+    var p = pt(a, tickR);
+    var tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x', p[0]); tx.setAttribute('y', p[1]);
+    tx.setAttribute('text-anchor','middle');
+    tx.setAttribute('class','tick');
+    tx.textContent = t + ' C';
+    ticksG.appendChild(tx);
+  });
+})();
+
+var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var current = {temp:22, vel:0};
+var targetTemp = 22;
+var animFrame = null;
+var lastTs = null;
+
+function membership(t){
+  var frio=0, morno=0, quente=0;
+  if(t <= 10) frio = 1;
+  else if(t < 20) frio = (20 - t) / 10;
+  if(t > 10 && t < 20) morno = (t - 10) / 10;
+  else if(t >= 20 && t < 30) morno = (30 - t) / 10;
+  if(t > 20 && t < 30) quente = (t - 20) / 10;
+  else if(t >= 30) quente = 1;
+  return {frio:frio, morno:morno, quente:quente};
+}
+
+function paint(t, angularSpeedDegPerSec){
+  var m = membership(t);
+  document.getElementById('tempReadout').textContent = Math.round(t) + ' C';
+  var needle = document.getElementById('needleGroup');
+  needle.style.transform = 'rotate(' + (-90 + 4.5*t) + 'deg)';
+  var blurPx = Math.min(Math.abs(angularSpeedDegPerSec || 0) * 0.022, 4);
+  needle.style.filter = blurPx > 0.05 ? 'blur(' + blurPx.toFixed(2) + 'px)' : 'none';
+  var fp = Math.max(0, Math.round(m.frio*100)), mp = Math.max(0, Math.round(m.morno*100)), qp = Math.max(0, Math.round(m.quente*100));
+  document.getElementById('frioPct').textContent = fp + '%';
+  document.getElementById('mornoPct').textContent = mp + '%';
+  document.getElementById('quentePct').textContent = qp + '%';
+  document.getElementById('frioBar').style.width = Math.min(fp,100) + '%';
+  document.getElementById('mornoBar').style.width = Math.min(mp,100) + '%';
+  document.getElementById('quenteBar').style.width = Math.min(qp,100) + '%';
+}
+
+function tick(ts){
+  if(lastTs === null) lastTs = ts;
+  var dt = Math.min((ts - lastTs) / 1000, 0.032);
+  lastTs = ts;
+  var stiffness = 95, damping = 12;
+  var accel = (targetTemp - current.temp) * stiffness - current.vel * damping;
+  current.vel += accel * dt;
+  current.temp += current.vel * dt;
+
+  var settled = Math.abs(current.vel) < 0.03 && Math.abs(targetTemp - current.temp) < 0.03;
+  if(settled){
+    current.temp = targetTemp;
+    current.vel = 0;
+    paint(current.temp, 0);
+    animFrame = null;
+    lastTs = null;
+    return;
+  }
+  paint(current.temp, current.vel * 4.5);
+  animFrame = requestAnimationFrame(tick);
+}
+
+function update(target){
+  targetTemp = Number(target);
+  document.getElementById('tempOut').textContent = targetTemp + ' C';
+  var pivot = document.getElementById('pivot');
+  pivot.classList.add('active');
+  setTimeout(function(){ pivot.classList.remove('active'); }, 300);
+
+  if(reduceMotion){
+    current.temp = targetTemp;
+    current.vel = 0;
+    paint(targetTemp, 0);
+    return;
+  }
+  if(!animFrame){
+    lastTs = null;
+    animFrame = requestAnimationFrame(tick);
+  }
+}
+update(22);
+</script>
+</body>
+</html>
